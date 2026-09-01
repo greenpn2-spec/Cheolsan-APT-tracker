@@ -105,15 +105,31 @@ def fetch_trades_for_month(lawd_cd: str, deal_ymd: str, service_key: str,
     return results
 
 
-def filter_by_keywords(items: list, keywords: list) -> list:
+def filter_matches(items: list, keywords: list, dong_filter: str = None,
+                    area_m2_target: float = None, area_m2_tolerance: float = 1.0) -> list:
+    """아파트명(정확 일치) + 법정동(부분일치, 선택) + 전용면적(허용오차, 선택)으로
+    필터링한다.
+
+    keywords는 부분일치가 아니라 "정확히 일치하는 이름 후보" 목록이다 (예: "두산"
+    처럼 느슨한 키워드를 쓰면 "구로두산위브", "도림두산베어스타워" 같은 이름이 다른
+    아파트까지 섞여 들어오기 때문). dong_filter/area 필터는 같은 이름을 쓰는 다른
+    지역 단지나 다른 평형이 섞이는 것을 추가로 막기 위한 선택적 조건이다.
+    """
     if not keywords:
         return items
-    normalized_keywords = [k.replace(" ", "") for k in keywords]
+    normalized_keywords = {k.replace(" ", "") for k in keywords}
     filtered = []
     for it in items:
         name = (it.get("apt_name") or "").replace(" ", "")
-        if any(k in name for k in normalized_keywords):
-            filtered.append(it)
+        if name not in normalized_keywords:
+            continue
+        if dong_filter and dong_filter not in (it.get("dong") or ""):
+            continue
+        if area_m2_target is not None:
+            area = it.get("area_m2")
+            if area is None or abs(area - area_m2_target) > area_m2_tolerance:
+                continue
+        filtered.append(it)
     return filtered
 
 
@@ -131,8 +147,10 @@ def recent_year_months(months_back: int = 3) -> list:
 
 
 def collect_transactions_for_complex(complex_key: str, lawd_cd: str, keywords: list,
-                                      service_key: str, months_back: int = 3) -> tuple:
-    """최근 N개월치 실거래가를 조회하여 keywords로 필터링 후
+                                      service_key: str, months_back: int = 3,
+                                      dong_filter: str = None, area_m2_target: float = None,
+                                      area_m2_tolerance: float = 1.0) -> tuple:
+    """최근 N개월치 실거래가를 조회하여 필터링 후
     db.insert_transactions에 바로 넣을 수 있는 dict 리스트로 반환.
 
     Returns (collected_rows, error_messages). 조회 중 오류가 나도 나머지 개월은
@@ -150,7 +168,7 @@ def collect_transactions_for_complex(complex_key: str, lawd_cd: str, keywords: l
         except MolitApiError as e:
             errors.append(f"{ymd}: {e}")
             continue
-        matched = filter_by_keywords(items, keywords)
+        matched = filter_matches(items, keywords, dong_filter, area_m2_target, area_m2_tolerance)
         for m in matched:
             m["complex_key"] = complex_key
         collected.extend(matched)
