@@ -169,8 +169,13 @@ with st.sidebar:
         st.code("0 1 1 * * cd /path/to/Cheolsan-APT-tracker && python scheduler.py", language="bash")
         st.caption("서버의 crontab에 위 줄을 등록하면 앱 실행 여부와 무관하게 매월 1일 01:00에 갱신됩니다. 자세한 방법은 README 참고.")
 
-    with st.expander("🧭 단지 코드 설정 (LAWD_CD / 키워드)"):
-        st.caption("실거래가 조회에 사용하는 법정동코드와 아파트명 매칭 키워드입니다. 데이터가 안 잡히면 확인/수정하세요.")
+    with st.expander("🧭 단지 코드 설정 (LAWD_CD / 아파트명 / 평형)"):
+        st.caption(
+            "실거래가 조회에 사용하는 법정동코드, 아파트명, 법정동, 전용면적 필터입니다. "
+            "'정확한 아파트명'은 부분일치가 아니라 완전히 같은 이름만 매칭됩니다 "
+            "(예: '두산'으로 두면 '구로두산위브' 같은 다른 단지까지 섞여 들어옵니다). "
+            "엉뚱한 단지/평형이 잡히거나 아예 안 잡히면 여기서 직접 조정하세요."
+        )
         stored_cfg = db.get_complex_config()
         new_cfg = {}
         for key, cfg in stored_cfg.items():
@@ -178,11 +183,28 @@ with st.sidebar:
             c1, c2 = st.columns(2)
             lawd = c1.text_input("LAWD_CD", value=cfg["lawd_cd"], key=f"lawd_{key}")
             kw = c2.text_input(
-                "매칭 키워드(콤마구분)", value=",".join(cfg.get("keywords", [])), key=f"kw_{key}"
+                "정확한 아파트명(콤마구분)", value=",".join(cfg.get("keywords", [])), key=f"kw_{key}"
+            )
+            c3, c4, c5 = st.columns(3)
+            dong = c3.text_input(
+                "법정동(선택)", value=cfg.get("dong_filter") or "", key=f"dong_{key}",
+                help="비워두면 법정동 필터 없이 시/군/구 전체에서 검색합니다.",
+            )
+            area_target = c4.number_input(
+                "전용면적 기준(㎡, 선택)", min_value=0.0, step=0.1,
+                value=float(cfg.get("area_m2_target") or 0.0), key=f"area_{key}",
+                help="0이면 면적 필터를 적용하지 않습니다.",
+            )
+            area_tol = c5.number_input(
+                "허용오차(㎡)", min_value=0.0, step=0.1,
+                value=float(cfg.get("area_m2_tolerance", 1.0)), key=f"tol_{key}",
             )
             new_cfg[key] = {
                 "lawd_cd": lawd.strip(),
                 "keywords": [k.strip() for k in kw.split(",") if k.strip()],
+                "dong_filter": dong.strip() or None,
+                "area_m2_target": area_target if area_target > 0 else None,
+                "area_m2_tolerance": area_tol,
             }
         if st.button("단지 코드 설정 저장", use_container_width=True):
             db.set_setting("complex_config", new_cfg)
