@@ -193,11 +193,17 @@ def get_recent_transactions(complex_key: str, limit: int = 15) -> pd.DataFrame:
     return df
 
 
-def get_last_fetch_time() -> str | None:
+def get_last_fetch_time(complex_key: str | None = None) -> str | None:
     conn = _connect()
-    row = conn.execute(
-        "SELECT MAX(fetched_at) AS ts FROM real_transactions"
-    ).fetchone()
+    if complex_key:
+        row = conn.execute(
+            "SELECT MAX(fetched_at) AS ts FROM real_transactions WHERE complex_key = ?",
+            (complex_key,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT MAX(fetched_at) AS ts FROM real_transactions"
+        ).fetchone()
     conn.close()
     return row["ts"] if row else None
 

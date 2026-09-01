@@ -2,7 +2,8 @@
 """철산 갈아타기 자금 및 시세 트래킹 대시보드."""
 
 import os
-from datetime import date
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -20,6 +21,20 @@ from molit_api import MolitApiError
 
 st.set_page_config(page_title="철산 갈아타기 트래커", page_icon="🏘️", layout="wide")
 db.init_db()
+
+
+def format_kst(iso_str: str | None) -> str:
+    """UTC ISO 문자열을 'YYYY-MM-DD HH:MM (KST)' 형태로 변환."""
+    if not iso_str:
+        return "아직 없음"
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except ValueError:
+        return iso_str
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    kst = dt.astimezone(ZoneInfo("Asia/Seoul"))
+    return kst.strftime("%Y-%m-%d %H:%M") + " (KST)"
 
 # ---------------------------------------------------------------------------
 # 세션 상태 초기화
@@ -98,7 +113,7 @@ with st.sidebar:
         st.success("저장되었습니다.")
 
     last_fetch = db.get_last_fetch_time()
-    st.caption(f"마지막 실거래가 수집: {last_fetch or '아직 없음'}")
+    st.caption(f"마지막 실거래가 수집: {format_kst(last_fetch)}")
 
     if st.button("🔄 지금 실거래가 갱신", use_container_width=True):
         import scheduler as _sched
@@ -113,17 +128,27 @@ with st.sidebar:
             total = sum(result.values())
             st.success(f"신규 {total}건 저장 완료")
             st.json(result)
+        st.rerun()
 
-    with st.expander("🛰️ 앱 내장 자동 갱신 (선택)"):
+    with st.expander("🛰️ 자동 갱신 (매월 1일 오전 1시)"):
+        import scheduler as _sched
         st.caption(
-            "Streamlit 앱이 켜져 있는 동안만 동작합니다. "
-            "항상 안정적으로 돌리려면 scheduler.py를 cron에 등록하는 것을 권장합니다."
+            "실거래가는 매월 1일 오전 1시(KST)에 자동 갱신되도록 설계되어 있습니다. "
+            "위의 '지금 실거래가 갱신' 버튼은 그대로 원할 때 언제든 눌러 즉시 갱신할 수 있습니다."
         )
-        interval = st.number_input("갱신 주기(시간)", min_value=1, max_value=168, value=24)
-        if st.button("자동 갱신 시작", use_container_width=True):
-            import scheduler as _sched
-            _sched.start_background_scheduler(interval_hours=int(interval))
-            st.success(f"{interval}시간마다 자동 갱신이 시작되었습니다. (앱 실행 중에만 유효)")
+        st.markdown(
+            "**앱 내장 스케줄러**: 아래 버튼을 누르면 이 Streamlit 프로세스가 켜져 있는 동안 "
+            "매월 1일 01:00에 자동 실행됩니다. (앱을 껐다 켜면 다시 눌러야 합니다.)"
+        )
+        if st.button("매월 1일 01:00 자동 갱신 시작", use_container_width=True):
+            _sched.start_background_scheduler()
+            st.success("등록되었습니다. 다음 실행: 매월 1일 오전 1시(KST)")
+        status = "🟢 실행 중" if _sched.is_background_scheduler_running() else "⚪ 미실행"
+        st.caption(f"앱 내장 스케줄러 상태: {status}")
+
+        st.markdown("**cron (권장, 앱을 계속 켜두지 않아도 동작)**")
+        st.code("0 1 1 * * cd /path/to/Cheolsan-APT-tracker && python scheduler.py", language="bash")
+        st.caption("서버의 crontab에 위 줄을 등록하면 앱 실행 여부와 무관하게 매월 1일 01:00에 갱신됩니다. 자세한 방법은 README 참고.")
 
     with st.expander("🧭 단지 코드 설정 (LAWD_CD / 키워드)"):
         st.caption("실거래가 조회에 사용하는 법정동코드와 아파트명 매칭 키워드입니다. 데이터가 안 잡히면 확인/수정하세요.")
@@ -193,29 +218,30 @@ st.divider()
 # ---------------------------------------------------------------------------
 # 입력 섹션
 # ---------------------------------------------------------------------------
-LOW_FLOOR_HELP = "체크: 입력가가 이미 저층 기준가임 (보정 없음). 해제: 입력가가 저층이 아닌 기준가로 보고 -10% 자동 보정하여 저층가로 환산."
+BADGE_ONLY_HELP = "참고용 배지 표시 전용입니다. 가격 계산에는 영향을 주지 않습니다."
+DUSAN_LOW_FLOOR_HELP = "체크(기본값): 입력가가 이미 저층(3층) 기준가임 → 보정 없음. 해제: 중고층 실거래가 등을 참고해 그대로 입력한 경우 → -10% 자동 보정하여 저층 등가로 환산."
 
 st.subheader("📋 매물 호가 입력 (Target, 만원 단위)")
 c1, c2 = st.columns(2)
 with c1:
     st.markdown(f"**{TARGET_COMPLEXES['cheolsan13']['label']} {TARGET_COMPLEXES['cheolsan13']['pyeong']}평**")
     st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t13_price_man")
-    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_t13_low", help=LOW_FLOOR_HELP)
+    st.checkbox("저층 매물", key="in_t13_low", help=BADGE_ONLY_HELP)
 with c2:
     st.markdown(f"**{TARGET_COMPLEXES['cheolsan12']['label']} {TARGET_COMPLEXES['cheolsan12']['pyeong']}평**")
     st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t12_price_man")
-    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_t12_low", help=LOW_FLOOR_HELP)
+    st.checkbox("저층 매물", key="in_t12_low", help=BADGE_ONLY_HELP)
 
 st.subheader("🏠 보유 부동산 매도 예상가 입력 (만원 단위)")
 c3, c4 = st.columns(2)
 with c3:
-    st.markdown(f"**{HELD_COMPLEXES['guro_dusan']['label']} {HELD_COMPLEXES['guro_dusan']['pyeong']}평** (3층)")
+    st.markdown(f"**{HELD_COMPLEXES['guro_dusan']['label']} {HELD_COMPLEXES['guro_dusan']['pyeong']}평** (3층 · 실보유 저층)")
     st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_dusan_price_man")
-    st.checkbox("저층가 기준으로 입력함 (기본 체크, 해제 시 -10% 자동 보정)", key="in_dusan_low", help=LOW_FLOOR_HELP)
+    st.checkbox("저층가 기준으로 입력함 (기본 체크, 해제 시 -10% 자동 보정)", key="in_dusan_low", help=DUSAN_LOW_FLOOR_HELP)
 with c4:
     st.markdown(f"**{HELD_COMPLEXES['bucheon_boram']['label']} {HELD_COMPLEXES['bucheon_boram']['pyeong']}평**")
     st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_boram_price_man")
-    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_boram_low", help=LOW_FLOOR_HELP)
+    st.checkbox("저층 매물", key="in_boram_low", help=BADGE_ONLY_HELP)
 
 st.subheader("💳 기존 대출 잔액 (만원 단위)")
 c5, c6 = st.columns(2)
@@ -279,36 +305,32 @@ st.divider()
 st.subheader("🏷️ 단지별 현황 카드")
 cards = st.columns(4)
 
-def render_price_card(price_label: str, low_floor_checked: bool, adjusted_price: int,
-                       reference_original) -> None:
-    if low_floor_checked:
-        st.write(f"{price_label}: **{format_krw_eok(adjusted_price)}**")
-        st.write("🔻 저층(입력가 그대로 사용)")
-    else:
-        st.write(f"{price_label}(저층 보정): **{format_krw_eok(adjusted_price)}**")
-        st.caption(f"원본 입력가(일반층 기준): {format_krw_eok(reference_original)} → -10% 보정 적용")
-        st.write("⬜ 일반층 입력 → 저층가로 환산")
+def render_badge_card(price_label: str, price: int, low_floor_checked: bool) -> None:
+    st.write(f"{price_label}: **{format_krw_eok(price)}**")
+    st.write("🔻 저층" if low_floor_checked else "⬜ 일반층/미표시")
 
 
 with cards[0]:
     st.markdown("##### 🎯 철산주공 13단지 28평")
-    render_price_card("호가", bool(record["t13_low_floor"]), metrics["t13"]["target_price"],
-                       metrics["t13"]["reference_original"])
+    render_badge_card("호가", record["t13_price"], bool(record["t13_low_floor"]))
 
 with cards[1]:
     st.markdown("##### 🅱️ 철산주공 12단지 27평")
-    render_price_card("호가", bool(record["t12_low_floor"]), metrics["t12"]["target_price"],
-                       metrics["t12"]["reference_original"])
+    render_badge_card("호가", record["t12_price"], bool(record["t12_low_floor"]))
 
 with cards[2]:
-    st.markdown("##### 🏠 구로 두산 20평 (3층)")
-    render_price_card("매도 예상가", bool(record["dusan_low_floor"]), metrics["dusan_adjusted"],
-                       metrics["dusan_reference_original"])
+    st.markdown("##### 🏠 구로 두산 20평 (3층 · 실보유 저층)")
+    if metrics["dusan_reference_original"] is not None:
+        st.write(f"매도 예상가(저층 보정): **{format_krw_eok(metrics['dusan_adjusted'])}**")
+        st.caption(f"원본 입력가(중고층 기준): {format_krw_eok(metrics['dusan_reference_original'])} → -10% 보정 적용")
+        st.write("⬜ 중고층 기준 입력 → 저층가로 환산")
+    else:
+        st.write(f"매도 예상가: **{format_krw_eok(metrics['dusan_adjusted'])}**")
+        st.write("🔻 저층(입력가 그대로 사용)")
 
 with cards[3]:
     st.markdown("##### 🏠 부천 보람마을 아주 23평")
-    render_price_card("매도 예상가", bool(record["boram_low_floor"]), metrics["boram_adjusted"],
-                       metrics["boram_reference_original"])
+    render_badge_card("매도 예상가", record["boram_price"], bool(record["boram_low_floor"]))
 
 st.divider()
 
@@ -398,6 +420,7 @@ tx_cols = st.columns(2)
 for i, (key, cfg) in enumerate(all_complexes.items()):
     with tx_cols[i % 2]:
         st.markdown(f"**{cfg['badge']} {cfg['label']} {cfg['pyeong']}평**")
+        st.caption(f"마지막 갱신: {format_kst(db.get_last_fetch_time(key))}")
         tx_df = db.get_recent_transactions(key, limit=10)
         if tx_df.empty:
             st.caption("수집된 실거래가가 없습니다. 사이드바에서 '지금 실거래가 갱신'을 눌러보세요.")

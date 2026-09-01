@@ -10,9 +10,14 @@ from config import (
 )
 
 
-def adjust_low_floor_price(price: int, is_low_floor: bool):
-    """저층 여부 체크 시 입력가 그대로 사용, 저층이 아닐 경우에만 -10% 보정하여
-    저층가로 환산한다.
+def adjust_dusan_price(price: int, is_low_floor: bool):
+    """구로 두산(실보유 저층 3층 매물) 전용 보정.
+
+    두산은 실제로 저층을 보유하고 있어 시세/실거래가를 그대로 반영하면 고평가
+    오류가 생긴다. 체크(기본값, 저층가 기준으로 입력함) 시 입력가를 그대로 쓰고,
+    체크 해제(중고층 실거래가 등을 참고해 그대로 입력한 경우) 시에만 -10% 보정하여
+    저층 등가로 환산한다. 다른 3개 가격(철산13/12단지 호가, 부천보람 매도가)에는
+    이 보정을 적용하지 않는다 — 배지 표시용 정보일 뿐이다.
 
     Returns (adjusted_price, reference_original_price_or_None).
     """
@@ -51,24 +56,19 @@ def target_metrics(target_price: int, total_available_capital: int) -> dict:
 def compute_metrics(record: dict) -> dict:
     """record: 원 단위 raw 입력값 dict (db.MONTHLY_FIELDS 키 포함).
 
-    4개 가격(13단지 호가/12단지 호가/두산 매도가/보람 매도가) 모두 동일한 규칙으로
-    저층 보정을 적용한다: 저층 체크 시 입력가 그대로, 저층이 아닐 경우에만 -10% 보정.
+    저층 보정(-10%)은 실보유 저층 매물인 구로두산에만 적용한다. 철산13/12단지
+    호가와 부천보람 매도가는 입력값을 그대로 사용하고, 저층 체크박스는 참고용
+    배지로만 표시한다.
     """
-    t13_adj, t13_ref = adjust_low_floor_price(
-        record.get("t13_price", 0), bool(record.get("t13_low_floor", 0))
-    )
-    t12_adj, t12_ref = adjust_low_floor_price(
-        record.get("t12_price", 0), bool(record.get("t12_low_floor", 0))
-    )
-    dusan_adj, dusan_ref = adjust_low_floor_price(
+    dusan_adj, dusan_ref = adjust_dusan_price(
         record.get("dusan_price", 0), bool(record.get("dusan_low_floor", 1))
     )
-    boram_adj, boram_ref = adjust_low_floor_price(
-        record.get("boram_price", 0), bool(record.get("boram_low_floor", 0))
-    )
+    t13_price = record.get("t13_price", 0)
+    t12_price = record.get("t12_price", 0)
+    boram_price = record.get("boram_price", 0)
 
     loans = record.get("loan_self", 0) + record.get("loan_spouse", 0)
-    net_equity = dusan_adj + boram_adj - loans
+    net_equity = dusan_adj + boram_price - loans
 
     cash = record.get("cash_self", 0) + record.get("cash_spouse", 0)
     reserve_fund = record.get("reserve_fund", 0)
@@ -79,19 +79,11 @@ def compute_metrics(record: dict) -> dict:
     return {
         "dusan_adjusted": dusan_adj,
         "dusan_reference_original": dusan_ref,
-        "boram_adjusted": boram_adj,
-        "boram_reference_original": boram_ref,
         "net_equity": net_equity,
         "available_cash": available_cash,
         "total_available_capital": total_available_capital,
-        "t13": {
-            **target_metrics(t13_adj, total_available_capital),
-            "reference_original": t13_ref,
-        },
-        "t12": {
-            **target_metrics(t12_adj, total_available_capital),
-            "reference_original": t12_ref,
-        },
+        "t13": target_metrics(t13_price, total_available_capital),
+        "t12": target_metrics(t12_price, total_available_capital),
     }
 
 
