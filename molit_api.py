@@ -62,11 +62,14 @@ def fetch_trades_for_month(lawd_cd: str, deal_ymd: str, service_key: str,
     except ET.ParseError as e:
         raise MolitApiError(f"API 응답 파싱 실패: {e}") from e
 
+    # data.go.kr 계열 API의 성공 코드는 서비스마다 "00" 또는 "000"으로 다르다.
+    # 이 API(RTMSDataSvcAptTradeDev)는 "000"/"OK"를 정상 응답으로 사용한다.
+    SUCCESS_CODES = {"00", "000"}
     header = root.find("header")
     if header is not None:
         result_code = _text(header, "resultCode")
         result_msg = _text(header, "resultMsg")
-        if result_code and result_code != "00":
+        if result_code and result_code not in SUCCESS_CODES:
             raise MolitApiError(f"API 오류({result_code}): {result_msg}")
 
     items = root.findall(".//item")
