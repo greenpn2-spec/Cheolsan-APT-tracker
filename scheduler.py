@@ -34,17 +34,20 @@ def get_service_key() -> str | None:
 def run_full_refresh(months_back: int = 3) -> dict:
     """설정된 모든 단지에 대해 최근 실거래가를 수집하여 DB에 저장.
 
-    Returns: {complex_key: inserted_count} 및 오류 시 'error' 포함.
+    Returns: {complex_key: {"inserted": int, "errors": [str, ...]}} 형태.
+    MOLIT_API_KEY 자체가 없으면 최상위 'error' 키만 담아 반환한다.
+    조회 중 발생한 오류(인증키 오류 등)는 조용히 무시하지 않고 각 단지별
+    "errors" 목록에 그대로 남겨서 화면에서 원인을 확인할 수 있게 한다.
     """
+    db.init_db()
     service_key = get_service_key()
     if not service_key:
         return {"error": "MOLIT_API_KEY 가 설정되지 않았습니다."}
 
-    db.init_db()
     complex_config = db.get_complex_config()
     summary = {}
     for key, cfg in complex_config.items():
-        rows = collect_transactions_for_complex(
+        rows, errors = collect_transactions_for_complex(
             complex_key=key,
             lawd_cd=cfg["lawd_cd"],
             keywords=cfg.get("keywords", []),
@@ -52,7 +55,7 @@ def run_full_refresh(months_back: int = 3) -> dict:
             months_back=months_back,
         )
         inserted = db.insert_transactions(rows)
-        summary[key] = inserted
+        summary[key] = {"inserted": inserted, "errors": errors}
     return summary
 
 

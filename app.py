@@ -122,13 +122,32 @@ with st.sidebar:
                 result = _sched.run_full_refresh(months_back=3)
             except Exception as e:  # noqa: BLE001
                 result = {"error": str(e)}
-        if "error" in result:
-            st.error(result["error"])
-        else:
-            total = sum(result.values())
-            st.success(f"신규 {total}건 저장 완료")
-            st.json(result)
+        st.session_state["last_refresh_result"] = result
         st.rerun()
+
+    last_result = st.session_state.get("last_refresh_result")
+    if last_result is not None:
+        if "error" in last_result:
+            st.error(last_result["error"])
+        else:
+            all_complexes_cfg = {**TARGET_COMPLEXES, **HELD_COMPLEXES}
+            total_inserted = sum(v["inserted"] for v in last_result.values())
+            has_errors = any(v["errors"] for v in last_result.values())
+            if total_inserted > 0:
+                st.success(f"신규 {total_inserted}건 저장 완료")
+            elif not has_errors:
+                st.info("신규 실거래가가 없습니다 (이미 최신 상태이거나, 최근 3개월간 해당 단지 거래가 없을 수 있습니다).")
+            for key, v in last_result.items():
+                label = all_complexes_cfg.get(key, {}).get("label", key)
+                st.caption(f"{label}: {v['inserted']}건")
+            if has_errors:
+                with st.expander("⚠️ 조회 중 오류 발생 (자세히 보기)"):
+                    for key, v in last_result.items():
+                        if v["errors"]:
+                            label = all_complexes_cfg.get(key, {}).get("label", key)
+                            st.markdown(f"**{label}**")
+                            for err in v["errors"]:
+                                st.caption(err)
 
     with st.expander("🛰️ 자동 갱신 (매월 1일 오전 1시)"):
         import scheduler as _sched
