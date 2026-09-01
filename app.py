@@ -206,6 +206,55 @@ with st.sidebar:
                 "area_m2_target": area_target if area_target > 0 else None,
                 "area_m2_tolerance": area_tol,
             }
+
+            if st.button(f"🔍 이 LAWD_CD로 원본 목록 미리보기", key=f"debug_btn_{key}"):
+                debug_service_key = api_key_input or default_key
+                if not debug_service_key:
+                    st.session_state[f"debug_result_{key}"] = {"error": "API 키를 먼저 입력/저장하세요."}
+                else:
+                    import molit_api as _mapi
+                    try:
+                        found = None
+                        tried = []
+                        for ymd in _mapi.recent_year_months(3):
+                            items = _mapi.fetch_trades_for_month(lawd.strip(), ymd, debug_service_key)
+                            tried.append((ymd, len(items)))
+                            if items:
+                                found = (ymd, items)
+                                break
+                        st.session_state[f"debug_result_{key}"] = {"found": found, "tried": tried}
+                    except Exception as e:  # noqa: BLE001
+                        st.session_state[f"debug_result_{key}"] = {"error": str(e)}
+
+            debug_result = st.session_state.get(f"debug_result_{key}")
+            if debug_result:
+                if "error" in debug_result:
+                    st.error(debug_result["error"])
+                elif not debug_result["found"]:
+                    tried_str = ", ".join(f"{y}({c}건)" for y, c in debug_result["tried"])
+                    st.warning(
+                        f"이 LAWD_CD로 최근 3개월({tried_str}) 모두 거래가 0건입니다. "
+                        "LAWD_CD 자체가 틀렸을 가능성이 높습니다."
+                    )
+                else:
+                    ymd, items = debug_result["found"]
+                    st.caption(f"{ymd} 기준, 이 LAWD_CD 전체 거래 {len(items)}건 중 서로 다른 아파트명 목록:")
+                    seen = {}
+                    for it in items:
+                        k2 = (it["apt_name"], it["dong"] or "")
+                        seen.setdefault(k2, set()).add(it["area_m2"])
+                    debug_rows = [
+                        {
+                            "아파트명": name,
+                            "법정동": dong_val,
+                            "전용면적(㎡) 예시": ", ".join(
+                                f"{a:g}" for a in sorted(a for a in areas if a is not None)
+                            ),
+                        }
+                        for (name, dong_val), areas in sorted(seen.items())
+                    ]
+                    st.dataframe(pd.DataFrame(debug_rows), hide_index=True, use_container_width=True)
+            st.divider()
         if st.button("단지 코드 설정 저장", use_container_width=True):
             db.set_setting("complex_config", new_cfg)
             st.success("저장되었습니다.")
