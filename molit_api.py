@@ -114,17 +114,27 @@ def recent_year_months(months_back: int = 3) -> list:
 
 
 def collect_transactions_for_complex(complex_key: str, lawd_cd: str, keywords: list,
-                                      service_key: str, months_back: int = 3) -> list:
+                                      service_key: str, months_back: int = 3) -> tuple:
     """최근 N개월치 실거래가를 조회하여 keywords로 필터링 후
-    db.insert_transactions에 바로 넣을 수 있는 dict 리스트로 반환."""
+    db.insert_transactions에 바로 넣을 수 있는 dict 리스트로 반환.
+
+    Returns (collected_rows, error_messages). 조회 중 오류가 나도 나머지 개월은
+    계속 시도하되, 어떤 오류가 있었는지는 error_messages에 남겨서 화면에 보여줄 수
+    있게 한다 (오류를 조용히 삼키지 않는다).
+    """
     collected = []
+    errors = []
     for ymd in recent_year_months(months_back):
         try:
             items = fetch_trades_for_month(lawd_cd, ymd, service_key)
-        except (requests.RequestException, MolitApiError):
+        except requests.RequestException as e:
+            errors.append(f"{ymd}: 네트워크 오류 ({e})")
+            continue
+        except MolitApiError as e:
+            errors.append(f"{ymd}: {e}")
             continue
         matched = filter_by_keywords(items, keywords)
         for m in matched:
             m["complex_key"] = complex_key
         collected.extend(matched)
-    return collected
+    return collected, errors
