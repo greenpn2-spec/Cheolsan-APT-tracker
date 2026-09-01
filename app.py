@@ -54,12 +54,6 @@ DEFAULTS = {
     "in_cash_spouse_man": 0,
     "in_reserve_man": RESERVE_FUND_DEFAULT // MANWON,
 }
-for k, v in DEFAULTS.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
-
-if "selected_ym" not in st.session_state:
-    st.session_state["selected_ym"] = date.today().strftime("%Y-%m")
 
 
 def load_record_into_state(record: dict):
@@ -94,6 +88,23 @@ def current_record_from_state() -> dict:
         "cash_spouse": st.session_state["in_cash_spouse_man"] * MANWON,
         "reserve_fund": st.session_state["in_reserve_man"] * MANWON,
     }
+
+
+# 세션이 새로 시작될 때(첫 로드, 리부트, 새 탭 등) DB에 저장된 값을 자동으로
+# 불러온다. 이걸 안 하면 입력해둔 값이 "리부트/새로고침할 때마다 사라진 것처럼"
+# 보이게 된다 (실제로는 DB에 저장은 됐지만 화면에 다시 채워주질 않았을 뿐).
+if "_state_loaded" not in st.session_state:
+    today_ym = date.today().strftime("%Y-%m")
+    record = db.get_monthly_record(today_ym) or db.get_latest_record()
+    if record:
+        load_record_into_state(record)
+    else:
+        for k, v in DEFAULTS.items():
+            st.session_state[k] = v
+    # 저장 대상 월은 항상 이번 달을 기본으로 한다 (과거 달의 값을 불러왔더라도
+    # '저장'을 누르면 그 과거 기록을 덮어쓰는 게 아니라 이번 달로 새로 기록되게).
+    st.session_state["selected_ym"] = today_ym
+    st.session_state["_state_loaded"] = True
 
 
 # ---------------------------------------------------------------------------
