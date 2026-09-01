@@ -27,6 +27,20 @@ def _text(item: ET.Element, tag: str) -> str:
     return el.text.strip() if el is not None and el.text else ""
 
 
+def _text_any(item: ET.Element, *tags: str) -> str:
+    """여러 후보 태그명 중 값이 있는 첫 번째를 반환.
+
+    RTMSDataSvcAptTradeDev(상세자료) 응답은 aptNm/dealAmount/dealYear 같은
+    영문 camelCase 태그를 쓰고, 기본(RTMSDataSvcAptTrade) 응답은 아파트/거래금액/년
+    같은 한글 태그를 쓴다. 둘 다 대응하기 위해 후보를 순서대로 시도한다.
+    """
+    for tag in tags:
+        value = _text(item, tag)
+        if value:
+            return value
+    return ""
+
+
 def fetch_trades_for_month(lawd_cd: str, deal_ymd: str, service_key: str,
                             num_of_rows: int = 1000) -> list:
     """단일 시군구코드/거래년월에 대한 아파트 매매 실거래 목록을 반환.
@@ -58,14 +72,14 @@ def fetch_trades_for_month(lawd_cd: str, deal_ymd: str, service_key: str,
     items = root.findall(".//item")
     results = []
     for item in items:
-        apt_name = _text(item, "아파트")
-        raw_amount = _text(item, "거래금액")
-        year = _text(item, "년")
-        month = _text(item, "월")
-        day = _text(item, "일")
-        area = _text(item, "전용면적")
-        floor = _text(item, "층")
-        dong = _text(item, "법정동")
+        apt_name = _text_any(item, "aptNm", "아파트")
+        raw_amount = _text_any(item, "dealAmount", "거래금액")
+        year = _text_any(item, "dealYear", "년")
+        month = _text_any(item, "dealMonth", "월")
+        day = _text_any(item, "dealDay", "일")
+        area = _text_any(item, "excluUseAr", "전용면적")
+        floor = _text_any(item, "floor", "층")
+        dong = _text_any(item, "umdNm", "법정동")
 
         if not (apt_name and raw_amount and year and month and day):
             continue
