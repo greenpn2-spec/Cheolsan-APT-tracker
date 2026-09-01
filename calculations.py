@@ -80,6 +80,8 @@ def compute_metrics(record: dict) -> dict:
         "dusan_adjusted": dusan_adj,
         "dusan_reference_original": dusan_ref,
         "net_equity": net_equity,
+        "cash_total": cash,
+        "reserve_fund": reserve_fund,
         "available_cash": available_cash,
         "total_available_capital": total_available_capital,
         "t13": target_metrics(t13_price, total_available_capital),
