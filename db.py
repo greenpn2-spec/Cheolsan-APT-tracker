@@ -176,6 +176,15 @@ def insert_transactions(rows: list):
     return inserted
 
 
+def count_transactions(complex_key: str) -> int:
+    conn = _connect()
+    row = conn.execute(
+        "SELECT COUNT(*) AS n FROM real_transactions WHERE complex_key = ?", (complex_key,)
+    ).fetchone()
+    conn.close()
+    return row["n"] if row else 0
+
+
 def get_recent_transactions(complex_key: str, limit: int = 15) -> pd.DataFrame:
     conn = _connect()
     df = pd.read_sql_query(

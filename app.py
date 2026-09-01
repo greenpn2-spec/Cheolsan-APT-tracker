@@ -139,7 +139,8 @@ with st.sidebar:
                 st.info("신규 실거래가가 없습니다 (이미 최신 상태이거나, 최근 3개월간 해당 단지 거래가 없을 수 있습니다).")
             for key, v in last_result.items():
                 label = all_complexes_cfg.get(key, {}).get("label", key)
-                st.caption(f"{label}: {v['inserted']}건")
+                total_in_db = db.count_transactions(key)
+                st.caption(f"{label}: 이번에 신규 {v['inserted']}건 (DB 누적 총 {total_in_db}건)")
             if has_errors:
                 with st.expander("⚠️ 조회 중 오류 발생 (자세히 보기)"):
                     for key, v in last_result.items():
