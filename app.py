@@ -440,6 +440,21 @@ st.divider()
 # 상세 계산 내역
 # ---------------------------------------------------------------------------
 with st.expander("🧮 상세 계산 내역 보기"):
+    st.markdown("**[가용 현금 계산]**")
+    cash_detail_df = pd.DataFrame(
+        {
+            "항목": ["본인 유동성 현금/투자금", "배우자 유동성 현금/투자금", "현금 합계", "(−) 보존할 예비 투자금", "= 가용 현금"],
+            "금액": [
+                format_krw_eok(record["cash_self"]),
+                format_krw_eok(record["cash_spouse"]),
+                format_krw_eok(metrics["cash_total"]),
+                format_krw_eok(metrics["reserve_fund"]),
+                format_krw_eok(metrics["available_cash"]),
+            ],
+        }
+    )
+    st.dataframe(cash_detail_df, hide_index=True, use_container_width=True)
+
     for label, key in [("철산 13단지 28평", "t13"), ("철산 12단지 27평", "t12")]:
         m = metrics[key]
         st.markdown(f"**[{label}]**")
@@ -447,7 +462,7 @@ with st.expander("🧮 상세 계산 내역 보기"):
             {
                 "항목": [
                     "Target 호가", "구매 제반 비용(3.5%)", "총 필요 자금",
-                    "부동산 순자산", "가용 현금", "총 가용 자본",
+                    "부동산 순자산", "가용 현금(위 계산 결과)", "총 가용 자본",
                     "대출 한도(LTV)", "총 가용자본+대출", "최종 부족/여유 자금", "달성률(%)",
                 ],
                 "금액/값": [
