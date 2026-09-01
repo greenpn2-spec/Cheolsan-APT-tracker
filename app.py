@@ -193,27 +193,29 @@ st.divider()
 # ---------------------------------------------------------------------------
 # 입력 섹션
 # ---------------------------------------------------------------------------
+LOW_FLOOR_HELP = "체크: 입력가가 이미 저층 기준가임 (보정 없음). 해제: 입력가가 저층이 아닌 기준가로 보고 -10% 자동 보정하여 저층가로 환산."
+
 st.subheader("📋 매물 호가 입력 (Target, 만원 단위)")
 c1, c2 = st.columns(2)
 with c1:
     st.markdown(f"**{TARGET_COMPLEXES['cheolsan13']['label']} {TARGET_COMPLEXES['cheolsan13']['pyeong']}평**")
     st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t13_price_man")
-    st.checkbox("저층 매물", key="in_t13_low")
+    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_t13_low", help=LOW_FLOOR_HELP)
 with c2:
     st.markdown(f"**{TARGET_COMPLEXES['cheolsan12']['label']} {TARGET_COMPLEXES['cheolsan12']['pyeong']}평**")
     st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t12_price_man")
-    st.checkbox("저층 매물", key="in_t12_low")
+    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_t12_low", help=LOW_FLOOR_HELP)
 
 st.subheader("🏠 보유 부동산 매도 예상가 입력 (만원 단위)")
 c3, c4 = st.columns(2)
 with c3:
     st.markdown(f"**{HELD_COMPLEXES['guro_dusan']['label']} {HELD_COMPLEXES['guro_dusan']['pyeong']}평** (3층)")
     st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_dusan_price_man")
-    st.checkbox("저층가 기준으로 입력함 (기본 체크, 해제 시 -10% 자동 보정)", key="in_dusan_low")
+    st.checkbox("저층가 기준으로 입력함 (기본 체크, 해제 시 -10% 자동 보정)", key="in_dusan_low", help=LOW_FLOOR_HELP)
 with c4:
     st.markdown(f"**{HELD_COMPLEXES['bucheon_boram']['label']} {HELD_COMPLEXES['bucheon_boram']['pyeong']}평**")
     st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_boram_price_man")
-    st.checkbox("저층 매물", key="in_boram_low")
+    st.checkbox("저층 매물 (해제 시 -10% 보정)", key="in_boram_low", help=LOW_FLOOR_HELP)
 
 st.subheader("💳 기존 대출 잔액 (만원 단위)")
 c5, c6 = st.columns(2)
@@ -277,29 +279,36 @@ st.divider()
 st.subheader("🏷️ 단지별 현황 카드")
 cards = st.columns(4)
 
+def render_price_card(price_label: str, low_floor_checked: bool, adjusted_price: int,
+                       reference_original) -> None:
+    if low_floor_checked:
+        st.write(f"{price_label}: **{format_krw_eok(adjusted_price)}**")
+        st.write("🔻 저층(입력가 그대로 사용)")
+    else:
+        st.write(f"{price_label}(저층 보정): **{format_krw_eok(adjusted_price)}**")
+        st.caption(f"원본 입력가(일반층 기준): {format_krw_eok(reference_original)} → -10% 보정 적용")
+        st.write("⬜ 일반층 입력 → 저층가로 환산")
+
+
 with cards[0]:
     st.markdown("##### 🎯 철산주공 13단지 28평")
-    st.write(f"호가: **{format_krw_eok(record['t13_price'])}**")
-    st.write("🔻 저층" if record["t13_low_floor"] else "⬜ 일반층/미표시")
+    render_price_card("호가", bool(record["t13_low_floor"]), metrics["t13"]["target_price"],
+                       metrics["t13"]["reference_original"])
 
 with cards[1]:
     st.markdown("##### 🅱️ 철산주공 12단지 27평")
-    st.write(f"호가: **{format_krw_eok(record['t12_price'])}**")
-    st.write("🔻 저층" if record["t12_low_floor"] else "⬜ 일반층/미표시")
+    render_price_card("호가", bool(record["t12_low_floor"]), metrics["t12"]["target_price"],
+                       metrics["t12"]["reference_original"])
 
 with cards[2]:
     st.markdown("##### 🏠 구로 두산 20평 (3층)")
-    st.write(f"매도 예상가(저층 보정): **{format_krw_eok(metrics['dusan_adjusted'])}**")
-    if metrics["dusan_reference_original"] is not None:
-        st.caption(f"원본 입력가(일반층 기준): {format_krw_eok(metrics['dusan_reference_original'])} → -10% 보정 적용")
-        st.write("🔻 저층(보정 적용)")
-    else:
-        st.write("🔻 저층(입력가 그대로 사용)")
+    render_price_card("매도 예상가", bool(record["dusan_low_floor"]), metrics["dusan_adjusted"],
+                       metrics["dusan_reference_original"])
 
 with cards[3]:
     st.markdown("##### 🏠 부천 보람마을 아주 23평")
-    st.write(f"매도 예상가: **{format_krw_eok(record['boram_price'])}**")
-    st.write("🔻 저층" if record["boram_low_floor"] else "⬜ 일반층/미표시")
+    render_price_card("매도 예상가", bool(record["boram_low_floor"]), metrics["boram_adjusted"],
+                       metrics["boram_reference_original"])
 
 st.divider()
 

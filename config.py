@@ -11,7 +11,7 @@ PURCHASE_COST_RATE = 0.035          # 구매 제반 비용률 (취득세+중개�
 LTV_PRICE_THRESHOLD = 1_500_000_000  # 15억 규제 기준
 LOAN_LIMIT_OVER_15EOK = 400_000_000
 LOAN_LIMIT_UNDER_15EOK = 600_000_000
-DUSAN_LOW_FLOOR_DISCOUNT = 0.10      # 두산 저층 보정률 (-10%)
+LOW_FLOOR_DISCOUNT = 0.10            # 저층 보정률 (-10%, 저층이 아닌 입력가에 적용)
 
 MANWON = 10_000  # 만원 단위 <-> 원 변환
 
