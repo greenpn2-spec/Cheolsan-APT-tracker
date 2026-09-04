@@ -442,14 +442,15 @@ def kpi_delta(shortfall: int) -> tuple:
 
 def render_kpi_card(title: str, m: dict) -> None:
     with st.container(border=True):
-        if not m["has_price"]:
+        has_price = m.get("has_price", m.get("target_price", 0) > 0)
+        if not has_price:
             st.metric(title, "—", delta="호가를 입력해주세요", delta_color="off")
             return
         delta_text, delta_color = kpi_delta(m["shortfall"])
         st.metric(title, f"{m['rate']:.1f}%", delta=delta_text, delta_color=delta_color)
         if m["over_15eok"]:
             st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
-        if m["achievable"]:
+        if m.get("achievable") and has_price:
             st.success("🎉 매수 실행 가능!")
 
 
