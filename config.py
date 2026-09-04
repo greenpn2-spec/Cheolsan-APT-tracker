@@ -25,7 +25,9 @@ MANWON = 10_000  # 만원 단위 <-> 원 변환
 #           "주공13"처럼 축약된 형태로 내려오는 경우가 많아, 실제 수집 결과를 보고 값을
 #           확정했다. 잘못 잡히면 사이드바 "🧭 단지 코드 설정"에서 직접 수정 가능.
 # dong_filter: 법정동(umdNm) 부분일치 필터 (동명이 다른 지역의 동일 단지명과 섞이는 것 방지)
-# area_m2_target / area_m2_tolerance: 전용면적(㎡) 필터 - 원하는 평형만 남기기 위함
+# area_m2_targets / area_m2_tolerance: 전용면적(㎡) 필터 - 원하는 평형(타입별로 여러 개일 수
+#   있음, 예: A/B타입)만 실거래가 참고 목록에 남기기 위함. 목표가/대시보드의 호가는
+#   사용자가 직접 입력하는 값이라 이 필터와 무관하다.
 
 # 매수 목표 단지 (미보유, 실거래가 자동수집 + Target 호가 수동입력)
 TARGET_COMPLEXES = {
@@ -36,7 +38,7 @@ TARGET_COMPLEXES = {
         "lawd_cd": "41210",   # 경기 광명시
         "keywords": ["주공13"],
         "dong_filter": "철산동",
-        "area_m2_target": 73.08,   # A/B타입 73.08~73.09 모두 포함되도록 허용오차로 커버
+        "area_m2_targets": [73.08, 73.09],   # A/B타입
         "area_m2_tolerance": 0.3,
     },
     "cheolsan12": {
@@ -46,7 +48,7 @@ TARGET_COMPLEXES = {
         "lawd_cd": "41210",   # 경기 광명시
         "keywords": ["주공12"],
         "dong_filter": "철산동",
-        "area_m2_target": 73.08,
+        "area_m2_targets": [73.08, 80.12, 82.99],   # 27평 타입이 여러 개라 실거래가 참고용으로 모두 포함
         "area_m2_tolerance": 0.3,
     },
 }
@@ -60,7 +62,7 @@ HELD_COMPLEXES = {
         "lawd_cd": "11530",   # 서울 구로구
         "keywords": ["구로두산"],
         "dong_filter": "구로동",
-        "area_m2_target": 44.64,
+        "area_m2_targets": [44.64],
         "area_m2_tolerance": 0.3,
         "default_low_floor": True,   # 3층 실거주 -> 기본 저층
         "has_correction": True,      # 체크 해제 시 -10% 저층 보정 적용
@@ -72,7 +74,7 @@ HELD_COMPLEXES = {
         "lawd_cd": "41192",   # 경기 부천시 원미구 (2024 구 재설치로 41190 전체코드는 더 이상 안 맞을 수 있음). 실측으로 확인 완료.
         "keywords": ["보람마을(아주)"],  # 실제 국토부 데이터의 아파트명이 이 괄호 포함 형식으로 내려옴 (실측 확인)
         "dong_filter": "중동",
-        "area_m2_target": 59.94,
+        "area_m2_targets": [59.94],
         "area_m2_tolerance": 0.3,
         "default_low_floor": False,
         "has_correction": False,     # 보정 없이 참고용 뱃지만 표시

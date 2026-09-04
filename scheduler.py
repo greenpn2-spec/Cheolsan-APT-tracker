@@ -54,7 +54,7 @@ def run_full_refresh(months_back: int = 3) -> dict:
             service_key=service_key,
             months_back=months_back,
             dong_filter=cfg.get("dong_filter"),
-            area_m2_target=cfg.get("area_m2_target"),
+            area_m2_targets=cfg.get("area_m2_targets"),
             area_m2_tolerance=cfg.get("area_m2_tolerance", 1.0),
         )
         inserted = db.insert_transactions(rows)

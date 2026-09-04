@@ -39,7 +39,11 @@ def target_metrics(target_price: int, total_available_capital: int) -> dict:
     loan_limit = loan_limit_for(target_price)
     acquisition_tax = round(target_price * ACQUISITION_TAX_RATE)
     brokerage_fee = round(target_price * BROKERAGE_RATE)
-    moving_cost = MOVING_COST_DEFAULT
+    # 호가를 아직 입력하지 않은 단지(target_price == 0)는 "구매"가 성립하지 않으므로
+    # 이사비용 같은 정액 비용도 붙이지 않는다. 안 그러면 total_required가 0이 아닌
+    # 이사비용(300만원)만 남아, 그 작은 값으로 나누면서 달성률이 수천~수만%로
+    # 튀는 버그가 생긴다.
+    moving_cost = MOVING_COST_DEFAULT if target_price > 0 else 0
     purchase_cost = acquisition_tax + brokerage_fee + moving_cost
     total_required = target_price + purchase_cost
     total_with_loan = total_available_capital + loan_limit
@@ -57,7 +61,8 @@ def target_metrics(target_price: int, total_available_capital: int) -> dict:
         "shortfall": shortfall,
         "rate": rate,
         "over_15eok": target_price > LTV_PRICE_THRESHOLD,
-        "achievable": shortfall <= 0,
+        "achievable": target_price > 0 and shortfall <= 0,
+        "has_price": target_price > 0,
     }
 
 
