@@ -5,7 +5,9 @@ from config import (
     LTV_PRICE_THRESHOLD,
     LOAN_LIMIT_OVER_15EOK,
     LOAN_LIMIT_UNDER_15EOK,
-    PURCHASE_COST_RATE,
+    ACQUISITION_TAX_RATE,
+    BROKERAGE_RATE,
+    MOVING_COST_DEFAULT,
     LOW_FLOOR_DISCOUNT,
 )
 
@@ -35,7 +37,10 @@ def loan_limit_for(target_price: int) -> int:
 
 def target_metrics(target_price: int, total_available_capital: int) -> dict:
     loan_limit = loan_limit_for(target_price)
-    purchase_cost = round(target_price * PURCHASE_COST_RATE)
+    acquisition_tax = round(target_price * ACQUISITION_TAX_RATE)
+    brokerage_fee = round(target_price * BROKERAGE_RATE)
+    moving_cost = MOVING_COST_DEFAULT
+    purchase_cost = acquisition_tax + brokerage_fee + moving_cost
     total_required = target_price + purchase_cost
     total_with_loan = total_available_capital + loan_limit
     shortfall = total_required - total_with_loan
@@ -43,6 +48,9 @@ def target_metrics(target_price: int, total_available_capital: int) -> dict:
     return {
         "target_price": target_price,
         "loan_limit": loan_limit,
+        "acquisition_tax": acquisition_tax,
+        "brokerage_fee": brokerage_fee,
+        "moving_cost": moving_cost,
         "purchase_cost": purchase_cost,
         "total_required": total_required,
         "total_with_loan": total_with_loan,

@@ -356,54 +356,56 @@ if save_clicked:
     db.upsert_monthly_record(st.session_state["selected_ym"], current_record_from_state())
     st.success(f"{st.session_state['selected_ym']} 기록이 저장되었습니다.")
 
-tab_input, tab_dashboard, tab_history, tab_market = st.tabs(
-    ["📝 입력", "📊 대시보드", "📈 이력", "🏢 실거래가"]
+tab_dashboard, tab_input, tab_history, tab_market = st.tabs(
+    ["📊 대시보드", "📝 입력", "📈 이력", "🏢 실거래가"]
 )
 
-# ---------------------------------------------------------------------------
-# 입력 탭
-# ---------------------------------------------------------------------------
-BADGE_ONLY_HELP = "참고용 배지 표시 전용입니다. 가격 계산에는 영향을 주지 않습니다."
+
+def money_input(label: str, key: str, step: int = 500) -> None:
+    """만원 단위 number_input + 입력값을 '1억 5,000만원' 형태로 바로 보여주는 캡션."""
+    st.number_input(label, min_value=0, step=step, key=key)
+    st.caption(f"= {format_krw_eok(st.session_state[key] * MANWON)}")
+
+
 DUSAN_LOW_FLOOR_HELP = "체크(기본값): 입력가가 이미 저층(3층) 기준가임 → 보정 없음. 해제: 중고층 실거래가 등을 참고해 그대로 입력한 경우 → -10% 자동 보정하여 저층 등가로 환산."
 
 with tab_input:
-    st.subheader("📋 매물 호가 입력 (Target, 만원 단위)")
+    st.caption("모든 금액은 만원 단위로 입력합니다.")
+
+    st.subheader("📋 매수 목표 호가")
     c1, c2 = st.columns(2)
     with c1, st.container(border=True):
         st.markdown(f"**{TARGET_COMPLEXES['cheolsan13']['label']} {TARGET_COMPLEXES['cheolsan13']['pyeong']}평**")
-        st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t13_price_man")
-        st.checkbox("저층 매물", key="in_t13_low", help=BADGE_ONLY_HELP)
+        money_input("최저 호가(만원)", "in_t13_price_man")
     with c2, st.container(border=True):
         st.markdown(f"**{TARGET_COMPLEXES['cheolsan12']['label']} {TARGET_COMPLEXES['cheolsan12']['pyeong']}평**")
-        st.number_input("최저 호가(만원)", min_value=0, step=500, key="in_t12_price_man")
-        st.checkbox("저층 매물", key="in_t12_low", help=BADGE_ONLY_HELP)
+        money_input("최저 호가(만원)", "in_t12_price_man")
 
-    st.subheader("🏠 보유 부동산 매도 예상가 입력 (만원 단위)")
+    st.subheader("🏠 보유 부동산 매도 예상가")
     c3, c4 = st.columns(2)
     with c3, st.container(border=True):
         st.markdown(f"**{HELD_COMPLEXES['guro_dusan']['label']} {HELD_COMPLEXES['guro_dusan']['pyeong']}평** (3층 · 실보유 저층)")
-        st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_dusan_price_man")
+        money_input("매도 예상가(만원)", "in_dusan_price_man")
         st.checkbox("저층가 기준으로 입력함 (기본 체크, 해제 시 -10% 자동 보정)", key="in_dusan_low", help=DUSAN_LOW_FLOOR_HELP)
     with c4, st.container(border=True):
         st.markdown(f"**{HELD_COMPLEXES['bucheon_boram']['label']} {HELD_COMPLEXES['bucheon_boram']['pyeong']}평**")
-        st.number_input("매도 예상가(만원)", min_value=0, step=500, key="in_boram_price_man")
-        st.checkbox("저층 매물", key="in_boram_low", help=BADGE_ONLY_HELP)
+        money_input("매도 예상가(만원)", "in_boram_price_man")
 
-    st.subheader("💳 기존 대출 잔액 (만원 단위)")
+    st.subheader("💳 기존 대출 잔액")
     c5, c6 = st.columns(2)
     with c5:
-        st.number_input("본인 대출 잔액(만원)", min_value=0, step=100, key="in_loan_self_man")
+        money_input("본인 대출 잔액(만원)", "in_loan_self_man", step=100)
     with c6:
-        st.number_input("배우자 대출 잔액(만원)", min_value=0, step=100, key="in_loan_spouse_man")
+        money_input("배우자 대출 잔액(만원)", "in_loan_spouse_man", step=100)
 
-    st.subheader("💰 현금 자산 입력 (만원 단위)")
+    st.subheader("💰 현금 자산")
     c7, c8, c9 = st.columns(3)
     with c7:
-        st.number_input("본인 유동성 현금/투자금(만원)", min_value=0, step=100, key="in_cash_self_man")
+        money_input("본인 유동성 현금/투자금(만원)", "in_cash_self_man", step=100)
     with c8:
-        st.number_input("배우자 유동성 현금/투자금(만원)", min_value=0, step=100, key="in_cash_spouse_man")
+        money_input("배우자 유동성 현금/투자금(만원)", "in_cash_spouse_man", step=100)
     with c9:
-        st.number_input("보존할 예비 투자금(만원)", min_value=0, step=100, key="in_reserve_man")
+        money_input("보존할 예비 투자금(만원)", "in_reserve_man", step=100)
 
 # ---------------------------------------------------------------------------
 # 실시간 계산
@@ -412,9 +414,8 @@ record = current_record_from_state()
 metrics = compute_metrics(record)
 
 
-def render_badge_card(price_label: str, price: int, low_floor_checked: bool) -> None:
+def render_badge_card(price_label: str, price: int) -> None:
     st.write(f"{price_label}: **{format_krw_eok(price)}**")
-    st.write("🔻 저층" if low_floor_checked else "⬜ 일반층/미표시")
 
 
 def kpi_delta(shortfall: int) -> tuple:
@@ -430,60 +431,63 @@ def kpi_delta(shortfall: int) -> tuple:
 
 
 with tab_dashboard:
-    st.subheader("📊 핵심 지표 (KPI)")
-    kA, kB, kC = st.columns(3)
+    st.subheader("📊 핵심 지표")
+    kA, kB = st.columns(2)
     with kA:
-        delta_text, delta_color = kpi_delta(metrics["t13"]["shortfall"])
-        st.metric(
-            "🎯 철산주공 13단지 28평 달성률",
-            f"{metrics['t13']['rate']:.1f}%",
-            delta=delta_text,
-            delta_color=delta_color,
-        )
+        with st.container(border=True):
+            delta_text, delta_color = kpi_delta(metrics["t13"]["shortfall"])
+            st.metric(
+                "🎯 철산주공 13단지 28평 달성률",
+                f"{metrics['t13']['rate']:.1f}%",
+                delta=delta_text,
+                delta_color=delta_color,
+            )
+            if metrics["t13"]["over_15eok"]:
+                st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
+            if metrics["t13"]["achievable"]:
+                st.success("🎉 매수 실행 가능!")
     with kB:
-        delta_text, delta_color = kpi_delta(metrics["t12"]["shortfall"])
-        st.metric(
-            "🅱️ 철산주공 12단지 27평 달성률(플랜B)",
-            f"{metrics['t12']['rate']:.1f}%",
-            delta=delta_text,
-            delta_color=delta_color,
-        )
+        with st.container(border=True):
+            delta_text, delta_color = kpi_delta(metrics["t12"]["shortfall"])
+            st.metric(
+                "🅱️ 철산주공 12단지 27평 달성률 (플랜B)",
+                f"{metrics['t12']['rate']:.1f}%",
+                delta=delta_text,
+                delta_color=delta_color,
+            )
+            if metrics["t12"]["over_15eok"]:
+                st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
+            if metrics["t12"]["achievable"]:
+                st.success("🎉 매수 실행 가능!")
+
+    kC, kD = st.columns(2)
     with kC:
         st.metric("보유 순자산 총액", format_krw_eok(metrics["net_equity"]))
+    with kD:
         st.metric("현재 가용 현금", format_krw_eok(metrics["available_cash"]))
 
-    # 조건부 경고 배지
-    for label, key in [("철산 13단지", "t13"), ("철산 12단지", "t12")]:
-        m = metrics[key]
-        if m["over_15eok"]:
-            st.warning(f"⚠️ [{label}] 15억 초과 규제 적용: 대출 한도 4억 원 제한 구역 (호가 {format_krw_eok(m['target_price'])})")
-        if m["achievable"]:
-            st.success(f"🎉 [{label}] 매수 실행 가능 상태! (갭 메우기 완료, 여유 {format_krw_eok(-m['shortfall'])})")
-
-    st.subheader("🏷️ 단지별 현황 카드")
+    st.subheader("🏷️ 단지별 현황")
     cards = st.columns(2)
 
     with cards[0]:
         with st.container(border=True):
             st.markdown("##### 🎯 철산주공 13단지 28평")
-            render_badge_card("호가", record["t13_price"], bool(record["t13_low_floor"]))
+            render_badge_card("호가", record["t13_price"])
         with st.container(border=True):
-            st.markdown("##### 🏠 구로 두산 20평 (3층 · 실보유 저층)")
+            st.markdown("##### 🏠 구로 두산 20평 (실보유)")
             if metrics["dusan_reference_original"] is not None:
                 st.write(f"매도 예상가(저층 보정): **{format_krw_eok(metrics['dusan_adjusted'])}**")
-                st.caption(f"원본 입력가(중고층 기준): {format_krw_eok(metrics['dusan_reference_original'])} → -10% 보정 적용")
-                st.write("⬜ 중고층 기준 입력 → 저층가로 환산")
+                st.caption(f"원본 입력가: {format_krw_eok(metrics['dusan_reference_original'])} → -10% 보정")
             else:
                 st.write(f"매도 예상가: **{format_krw_eok(metrics['dusan_adjusted'])}**")
-                st.write("🔻 저층(입력가 그대로 사용)")
 
     with cards[1]:
         with st.container(border=True):
             st.markdown("##### 🅱️ 철산주공 12단지 27평")
-            render_badge_card("호가", record["t12_price"], bool(record["t12_low_floor"]))
+            render_badge_card("호가", record["t12_price"])
         with st.container(border=True):
             st.markdown("##### 🏠 부천 보람마을 아주 23평")
-            render_badge_card("매도 예상가", record["boram_price"], bool(record["boram_low_floor"]))
+            render_badge_card("매도 예상가", record["boram_price"])
 
     with st.expander("🧮 상세 계산 내역 보기"):
         st.markdown("**[가용 현금 계산]**")
@@ -507,13 +511,19 @@ with tab_dashboard:
             detail_df = pd.DataFrame(
                 {
                     "항목": [
-                        "Target 호가", "구매 제반 비용(3.5%)", "총 필요 자금",
+                        "Target 호가",
+                        "(+) 취득세 등",
+                        "(+) 중개수수료",
+                        "(+) 이사비용",
+                        "= 총 필요 자금",
                         "부동산 순자산", "가용 현금(위 계산 결과)", "총 가용 자본",
                         "대출 한도(LTV)", "총 가용자본+대출", "최종 부족/여유 자금", "달성률(%)",
                     ],
                     "금액/값": [
                         format_krw_eok(m["target_price"]),
-                        format_krw_eok(m["purchase_cost"]),
+                        format_krw_eok(m["acquisition_tax"]),
+                        format_krw_eok(m["brokerage_fee"]),
+                        format_krw_eok(m["moving_cost"]),
                         format_krw_eok(m["total_required"]),
                         format_krw_eok(metrics["net_equity"]),
                         format_krw_eok(metrics["available_cash"]),

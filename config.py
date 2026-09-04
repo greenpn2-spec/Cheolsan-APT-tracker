@@ -7,7 +7,12 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DATA_DIR, "tracker.db")
 
 RESERVE_FUND_DEFAULT = 300_000_000  # 예비 투자금 기본값 (원)
-PURCHASE_COST_RATE = 0.035          # 구매 제반 비용률 (취득세+중개보수+등기비용 등 근사치)
+
+# 구매 제반 비용 항목별 근사치 (취득세/중개수수료는 호가 대비 %, 이사비용은 정액)
+ACQUISITION_TAX_RATE = 0.030   # 취득세 등(지방교육세 포함 근사치)
+BROKERAGE_RATE = 0.005         # 부동산 중개수수료 근사치 (법정 상한 부근)
+MOVING_COST_DEFAULT = 3_000_000  # 이사비용 예상액(원) — 정액, 목표가와 무관
+
 LTV_PRICE_THRESHOLD = 1_500_000_000  # 15억 규제 기준
 LOAN_LIMIT_OVER_15EOK = 400_000_000
 LOAN_LIMIT_UNDER_15EOK = 600_000_000
