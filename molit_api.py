@@ -106,7 +106,7 @@ def fetch_trades_for_month(lawd_cd: str, deal_ymd: str, service_key: str,
 
 
 def filter_matches(items: list, keywords: list, dong_filter: str = None,
-                    area_m2_target: float = None, area_m2_tolerance: float = 1.0) -> list:
+                    area_m2_targets: list = None, area_m2_tolerance: float = 1.0) -> list:
     """아파트명(정확 일치) + 법정동(부분일치, 선택) + 전용면적(허용오차, 선택)으로
     필터링한다.
 
@@ -114,6 +114,9 @@ def filter_matches(items: list, keywords: list, dong_filter: str = None,
     처럼 느슨한 키워드를 쓰면 "구로두산위브", "도림두산베어스타워" 같은 이름이 다른
     아파트까지 섞여 들어오기 때문). dong_filter/area 필터는 같은 이름을 쓰는 다른
     지역 단지나 다른 평형이 섞이는 것을 추가로 막기 위한 선택적 조건이다.
+
+    area_m2_targets는 여러 타입(A/B타입 등)을 한꺼번에 허용하기 위한 목표 전용면적
+    "목록"이다. 목록 중 하나라도 허용오차 이내로 맞으면 통과한다.
     """
     if not keywords:
         return items
@@ -125,9 +128,9 @@ def filter_matches(items: list, keywords: list, dong_filter: str = None,
             continue
         if dong_filter and dong_filter not in (it.get("dong") or ""):
             continue
-        if area_m2_target is not None:
+        if area_m2_targets:
             area = it.get("area_m2")
-            if area is None or abs(area - area_m2_target) > area_m2_tolerance:
+            if area is None or not any(abs(area - t) <= area_m2_tolerance for t in area_m2_targets):
                 continue
         filtered.append(it)
     return filtered
@@ -148,7 +151,7 @@ def recent_year_months(months_back: int = 3) -> list:
 
 def collect_transactions_for_complex(complex_key: str, lawd_cd: str, keywords: list,
                                       service_key: str, months_back: int = 3,
-                                      dong_filter: str = None, area_m2_target: float = None,
+                                      dong_filter: str = None, area_m2_targets: list = None,
                                       area_m2_tolerance: float = 1.0) -> tuple:
     """최근 N개월치 실거래가를 조회하여 필터링 후
     db.insert_transactions에 바로 넣을 수 있는 dict 리스트로 반환.
@@ -168,7 +171,7 @@ def collect_transactions_for_complex(complex_key: str, lawd_cd: str, keywords: l
         except MolitApiError as e:
             errors.append(f"{ymd}: {e}")
             continue
-        matched = filter_matches(items, keywords, dong_filter, area_m2_target, area_m2_tolerance)
+        matched = filter_matches(items, keywords, dong_filter, area_m2_targets, area_m2_tolerance)
         for m in matched:
             m["complex_key"] = complex_key
         collected.extend(matched)

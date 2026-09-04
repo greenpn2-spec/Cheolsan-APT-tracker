@@ -243,20 +243,30 @@ with st.sidebar:
                 "법정동(선택)", value=cfg.get("dong_filter") or "", key=f"dong_{key}",
                 help="비워두면 법정동 필터 없이 시/군/구 전체에서 검색합니다.",
             )
-            area_target = c4.number_input(
-                "전용면적 기준(㎡, 선택)", min_value=0.0, step=0.1,
-                value=float(cfg.get("area_m2_target") or 0.0), key=f"area_{key}",
-                help="0이면 면적 필터를 적용하지 않습니다.",
+            area_targets_str = c4.text_input(
+                "전용면적 기준(㎡, 콤마구분, 선택)",
+                value=", ".join(str(a) for a in cfg.get("area_m2_targets", [])),
+                key=f"area_{key}",
+                help="타입별로 여러 값 가능 (예: 73.08, 73.09). 비우면 면적 필터를 적용하지 않습니다.",
             )
             area_tol = c5.number_input(
                 "허용오차(㎡)", min_value=0.0, step=0.1,
                 value=float(cfg.get("area_m2_tolerance", 1.0)), key=f"tol_{key}",
             )
+            area_targets = []
+            for token in area_targets_str.split(","):
+                token = token.strip()
+                if not token:
+                    continue
+                try:
+                    area_targets.append(float(token))
+                except ValueError:
+                    pass
             new_cfg[key] = {
                 "lawd_cd": lawd.strip(),
                 "keywords": [k.strip() for k in kw.split(",") if k.strip()],
                 "dong_filter": dong.strip() or None,
-                "area_m2_target": area_target if area_target > 0 else None,
+                "area_m2_targets": area_targets or None,
                 "area_m2_tolerance": area_tol,
             }
 
@@ -430,35 +440,26 @@ def kpi_delta(shortfall: int) -> tuple:
     return f"여유 {format_krw_eok(-shortfall)}", "normal"
 
 
+def render_kpi_card(title: str, m: dict) -> None:
+    with st.container(border=True):
+        if not m["has_price"]:
+            st.metric(title, "—", delta="호가를 입력해주세요", delta_color="off")
+            return
+        delta_text, delta_color = kpi_delta(m["shortfall"])
+        st.metric(title, f"{m['rate']:.1f}%", delta=delta_text, delta_color=delta_color)
+        if m["over_15eok"]:
+            st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
+        if m["achievable"]:
+            st.success("🎉 매수 실행 가능!")
+
+
 with tab_dashboard:
     st.subheader("📊 핵심 지표")
     kA, kB = st.columns(2)
     with kA:
-        with st.container(border=True):
-            delta_text, delta_color = kpi_delta(metrics["t13"]["shortfall"])
-            st.metric(
-                "🎯 철산주공 13단지 28평 달성률",
-                f"{metrics['t13']['rate']:.1f}%",
-                delta=delta_text,
-                delta_color=delta_color,
-            )
-            if metrics["t13"]["over_15eok"]:
-                st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
-            if metrics["t13"]["achievable"]:
-                st.success("🎉 매수 실행 가능!")
+        render_kpi_card("🎯 철산주공 13단지 28평 달성률", metrics["t13"])
     with kB:
-        with st.container(border=True):
-            delta_text, delta_color = kpi_delta(metrics["t12"]["shortfall"])
-            st.metric(
-                "🅱️ 철산주공 12단지 27평 달성률 (플랜B)",
-                f"{metrics['t12']['rate']:.1f}%",
-                delta=delta_text,
-                delta_color=delta_color,
-            )
-            if metrics["t12"]["over_15eok"]:
-                st.warning("⚠️ 15억 초과 → 대출 한도 4억 제한")
-            if metrics["t12"]["achievable"]:
-                st.success("🎉 매수 실행 가능!")
+        render_kpi_card("🅱️ 철산주공 12단지 27평 달성률 (플랜B)", metrics["t12"])
 
     kC, kD = st.columns(2)
     with kC:
@@ -474,7 +475,7 @@ with tab_dashboard:
             st.markdown("##### 🎯 철산주공 13단지 28평")
             render_badge_card("호가", record["t13_price"])
         with st.container(border=True):
-            st.markdown("##### 🏠 구로 두산 20평 (실보유)")
+            st.markdown("##### 🏠 구로 두산 20평")
             if metrics["dusan_reference_original"] is not None:
                 st.write(f"매도 예상가(저층 보정): **{format_krw_eok(metrics['dusan_adjusted'])}**")
                 st.caption(f"원본 입력가: {format_krw_eok(metrics['dusan_reference_original'])} → -10% 보정")
